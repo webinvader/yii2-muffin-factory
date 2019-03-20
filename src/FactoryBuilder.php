@@ -16,67 +16,104 @@ class FactoryBuilder
      * @var array
      */
     protected $definitions;
-    
+
     /**
      * The model being built.
      *
      * @var string
      */
     protected $class;
-    
+
     /**
      * The name of the model being built.
      *
      * @var string
      */
     protected $name = 'default';
-    
+
     /**
      * The model states.
      *
      * @var array
      */
     protected $states;
-    
+
     /**
      * The states to apply.
      *
      * @var array
      */
     protected $activeStates = [];
-    
+
+    /**
+     * The model states.
+     *
+     * @var array
+     */
+    protected $afterStore;
+
+    /**
+     * The states to apply.
+     *
+     * @var array
+     */
+    protected $activeAfterStore = null;
+
+    /**
+     * The model states.
+     *
+     * @var array
+     */
+    protected $beforeStore;
+
+    /**
+     * The states to apply.
+     *
+     * @var array
+     */
+    protected $activeBeforeStore = null;
+
     /**
      * The Faker instance for the builder.
      *
      * @var \Faker\Generator
      */
     protected $faker;
-    
+
     /**
      * The number of models to build.
      *
      * @var int|null
      */
     protected $amount = null;
-    
+
     /**
      * Create an new builder instance.
      *
-     * @param  string           $class
-     * @param  string           $name
-     * @param  array            $definitions
-     * @param  array            $states
+     * @param  string $class
+     * @param  string $name
+     * @param  array $definitions
+     * @param  array $states
      * @param  \Faker\Generator $faker
      */
-    public function __construct($class, $name, array $definitions, array $states, Faker $faker)
-    {
+    public function __construct(
+        $class,
+        $name,
+        array $definitions,
+        array $states,
+        Faker $faker,
+        array $beforeStore,
+        array $afterStore
+    ) {
         $this->name = $name;
         $this->class = $class;
         $this->faker = $faker;
         $this->states = $states;
+        $this->beforeStore = $beforeStore;
+        $this->afterStore = $afterStore;
         $this->definitions = $definitions;
     }
-    
+
     /**
      * Set the amount of models you wish to create / make.
      *
@@ -87,10 +124,10 @@ class FactoryBuilder
     public function times($amount)
     {
         $this->amount = $amount;
-        
+
         return $this;
     }
-    
+
     /**
      * Set the states to be applied to the model.
      *
@@ -101,10 +138,47 @@ class FactoryBuilder
     public function states($states)
     {
         $this->activeStates = is_array($states) ? $states : func_get_args();
-        
+
         return $this;
     }
-    
+
+    /**
+     * Callback before store item
+     * Set false to disable callback assigned in definitions
+     *
+     * @param  callable|false
+     *
+     * @return $this
+     */
+    public function beforeStore($callable = false)
+    {
+        if ($callable === false) {
+            $this->activeBeforeStore = false;
+        } else {
+            $this->activeBeforeStore = is_callable($callable) ? $callable : null;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Callback after store item
+     * Set false to disable callback assigned in definitions
+     *
+     * @param  callable|null|false $states
+     *
+     * @return $this
+     */
+    public function afterStore($callable = false)
+    {
+        if ($callable === false) {
+            $this->activeAfterStore = false;
+        } else {
+            $this->activeAfterStore = is_callable($callable) ? $callable : null;
+        }
+        return $this;
+    }
+
     /**
      * Create a model and persist it in the database if requested.
      *
@@ -118,7 +192,7 @@ class FactoryBuilder
             return $this->create($attributes);
         };
     }
-    
+
     /**
      * Create a collection of models and persist them to the database.
      *
@@ -130,16 +204,16 @@ class FactoryBuilder
     public function create(array $attributes = [])
     {
         $results = $this->make($attributes);
-        
+
         if ($results instanceof ActiveRecord) {
             $this->store([$results]);
         } else {
             $this->store($results);
         }
-        
+
         return $results;
     }
-    
+
     /**
      * Create a collection of models.
      *
@@ -153,18 +227,18 @@ class FactoryBuilder
         if ($this->amount === null) {
             return $this->makeInstance($attributes);
         }
-        
+
         if ($this->amount < 1) {
             return new $this->class;
         }
-        
+
         $models = [];
         for ($i = 0; $i < $this->amount; $i++) {
             $models[] = $this->makeInstance($attributes);
         }
         return $models;
     }
-    
+
     /**
      * Create an array of raw attribute arrays.
      *
@@ -178,16 +252,18 @@ class FactoryBuilder
         if ($this->amount === null) {
             return $this->getRawAttributes($attributes);
         }
-        
+
         if ($this->amount < 1) {
             return [];
         }
-        
-        return array_map(function () use ($attributes) {
-            return $this->getRawAttributes($attributes);
-        }, range(1, $this->amount));
+
+        return array_map(
+            function () use ($attributes) {
+                return $this->getRawAttributes($attributes);
+            }, range(1, $this->amount)
+        );
     }
-    
+
     /**
      * @param  array|ActiveRecord[] $results
      *
@@ -196,10 +272,12 @@ class FactoryBuilder
     protected function store(array $results)
     {
         foreach ($results as $model) {
+            $this->applyBeforeStore($model);
             $model->save(false);
+            $this->applyAfterStore($model);
         }
     }
-    
+
     /**
      * Get a raw attributes array for the model.
      *
@@ -215,12 +293,12 @@ class FactoryBuilder
             $this->faker,
             $attributes
         );
-        
+
         return $this->expandAttributes(
             array_merge($this->applyStates($definition, $attributes), $attributes)
         );
     }
-    
+
     /**
      * Make an instance of the model with the given attributes.
      *
@@ -238,7 +316,7 @@ class FactoryBuilder
         $instance->setAttributes($this->getRawAttributes($attributes), false);
         return $instance;
     }
-    
+
     /**
      * Apply the active states to the model definition array.
      *
@@ -261,30 +339,72 @@ class FactoryBuilder
         }
         return $definition;
     }
-    
+
+    /**
+     * Apply the active before store call back or the callback that have been set in definitions
+     *
+     * @param  $model
+     */
+    protected function applyBeforeStore($model)
+    {
+        $callback = $this->activeBeforeStore;
+
+        if ($callback === false) {
+            return;
+        }
+
+        if (is_null($callback) && isset($this->beforeStore[$this->class])) {
+            $callback = $this->beforeStore[$this->class];
+        }
+        if (!is_null($callback) && is_callable($callback)) {
+            call_user_func($callback, $model, $this->faker);
+        }
+    }
+
+    /**
+     * Apply the active before store call back or the callback that have been set in definitions
+     *
+     * @param  $model
+     */
+    protected function applyAfterStore($model)
+    {
+        $callback = $this->activeAfterStore;
+
+        if ($callback === false) {
+            return;
+        }
+
+        if (is_null($callback) && isset($this->afterStore[$this->class])) {
+            $callback = $this->afterStore[$this->class];
+        }
+        if (!is_null($callback) && is_callable($callback)) {
+            call_user_func($callback, $model, $this->faker);
+        }
+    }
+
     /**
      * Get the state attributes.
      *
      * @param  string $state
-     * @param  array  $attributes
+     * @param  array $attributes
      *
      * @return array
      */
     protected function stateAttributes($state, array $attributes)
     {
         $stateAttributes = $this->states[$this->class][$state];
-        
+
         if (!is_callable($stateAttributes)) {
             return $stateAttributes;
         }
-        
+
         return call_user_func(
             $stateAttributes,
             $this->faker,
             $attributes
         );
     }
-    
+
     /**
      * Expand all attributes to their underlying values.
      *
@@ -298,16 +418,16 @@ class FactoryBuilder
             if (is_callable($attribute) && !is_string($attribute)) {
                 $attribute = $attribute($attributes);
             }
-            
+
             if ($attribute instanceof static) {
                 $attribute = $attribute->create()->getPrimaryKey();
             }
-            
+
             if ($attribute instanceof ActiveRecord) {
                 $attribute = $attribute->getPrimaryKey();
             }
         }
-        
+
         return $attributes;
     }
 }
