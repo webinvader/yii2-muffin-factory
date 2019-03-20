@@ -230,7 +230,7 @@ class Factory implements ArrayAccess
      * @param  string $class
      * @param  string $name
      *
-     * @return \insolita\muffin\FactoryBuilder
+     * @return \webinvader\muffin\FactoryBuilder
      */
     public function of($class, $name = 'default')
     {
