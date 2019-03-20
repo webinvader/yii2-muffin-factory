@@ -3,7 +3,7 @@
  * Created by solly [26.11.17 2:43]
  */
 
-namespace insolita\muffin;
+namespace webinvader\muffin;
 
 use Faker\Generator as Faker;
 use yii\db\ActiveRecord;
