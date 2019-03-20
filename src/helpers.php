@@ -1,5 +1,5 @@
 <?php
-use webivader\muffin\Factory;
+use webinvader\muffin\Factory;
 
 if (!function_exists('factory')) {
     function factory()
