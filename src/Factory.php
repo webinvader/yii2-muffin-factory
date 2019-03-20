@@ -18,38 +18,53 @@ class Factory implements ArrayAccess
      * @var array
      */
     protected $definitions = [];
-    
+
+    /**
+     * The registered model states.
+     *
+     * @var array
+     */
+    protected $beforeStoreCallbacks = [];
+
     /**
      * The registered model states.
      *
      * @var array
      */
     protected $states = [];
-    
+
+    /**
+     * The registered model states.
+     *
+     * @var array
+     */
+    protected $afterStoreCallbacks = [];
+
+
     /**
      * The Faker instance for the builder.
      *
      * @var \Faker\Generator
      */
     protected $faker;
-    
+
     /**
      * Create a new factory instance.
      *
      * @param  \Faker\Generator $faker
-     * @param string            $factoryPath
+     * @param string $factoryPath
      */
     public function __construct(Faker $faker, $factoryPath = '@tests/factories')
     {
         $this->faker = $faker;
         $this->load(Yii::getAlias($factoryPath));
     }
-    
+
     /**
      * Define a class with a given short-name.
      *
-     * @param  string   $class
-     * @param  string   $name
+     * @param  string $class
+     * @param  string $name
      * @param  callable $attributes
      *
      * @return $this
@@ -58,28 +73,28 @@ class Factory implements ArrayAccess
     {
         return $this->define($class, $attributes, $name);
     }
-    
+
     /**
      * Define a class with a given set of attributes.
      *
-     * @param  string   $class
+     * @param  string $class
      * @param  callable $attributes
-     * @param  string   $name
+     * @param  string $name
      *
      * @return $this
      */
     public function define($class, callable $attributes, $name = 'default')
     {
         $this->definitions[$class][$name] = $attributes;
-        
+
         return $this;
     }
-    
+
     /**
      * Define a state with a given set of attributes.
      *
-     * @param  string         $class
-     * @param  string         $state
+     * @param  string $class
+     * @param  string $state
      * @param  callable|array $attributes
      *
      * @return $this
@@ -87,15 +102,46 @@ class Factory implements ArrayAccess
     public function state($class, $state, $attributes)
     {
         $this->states[$class][$state] = $attributes;
-        
+
         return $this;
     }
-    
+
+    /**
+     * Define a callback that will be called before store by default
+     * It is called after
+     *
+     * @param  string $class
+     * @param  callable $callback
+     *
+     * @return $this
+     */
+    public function beforeStore($class, $callback)
+    {
+        $this->beforeStoreCallbacks[$class] = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Define a callback that will be called before store by default
+     *
+     * @param  string $class
+     * @param  callable $callback
+     *
+     * @return $this
+     */
+    public function afterStore($class, $callback)
+    {
+        $this->afterStoreCallbacks[$class] = $callback;
+
+        return $this;
+    }
+
     /**
      * Create an instance of the given model and persist it to the database.
      *
      * @param  string $class
-     * @param  array  $attributes
+     * @param  array $attributes
      *
      * @return \yii\db\ActiveRecord|\yii\db\ActiveRecord[]
      */
@@ -103,13 +149,13 @@ class Factory implements ArrayAccess
     {
         return $this->of($class)->create($attributes);
     }
-    
+
     /**
      * Create an instance of the given model and type and persist it to the database.
      *
      * @param  string $class
      * @param  string $name
-     * @param  array  $attributes
+     * @param  array $attributes
      *
      * @return \yii\db\ActiveRecord|\yii\db\ActiveRecord[]
      */
@@ -117,12 +163,12 @@ class Factory implements ArrayAccess
     {
         return $this->of($class, $name)->create($attributes);
     }
-    
+
     /**
      * Create an instance of the given model.
      *
      * @param  string $class
-     * @param  array  $attributes
+     * @param  array $attributes
      *
      * @return \yii\db\ActiveRecord|\yii\db\ActiveRecord[]
      * @throws \InvalidArgumentException
@@ -131,13 +177,13 @@ class Factory implements ArrayAccess
     {
         return $this->of($class)->make($attributes);
     }
-    
+
     /**
      * Create an instance of the given model and type.
      *
      * @param  string $class
      * @param  string $name
-     * @param  array  $attributes
+     * @param  array $attributes
      *
      * @return \yii\db\ActiveRecord|\yii\db\ActiveRecord[]
      * @throws \InvalidArgumentException
@@ -146,13 +192,13 @@ class Factory implements ArrayAccess
     {
         return $this->of($class, $name)->make($attributes);
     }
-    
+
     /**
      * Get the raw attribute array for a given named model.
      *
      * @param  string $class
      * @param  string $name
-     * @param  array  $attributes
+     * @param  array $attributes
      *
      * @return array
      */
@@ -160,12 +206,12 @@ class Factory implements ArrayAccess
     {
         return $this->raw($class, $attributes, $name);
     }
-    
+
     /**
      * Get the raw attribute array for a given model.
      *
      * @param  string $class
-     * @param  array  $attributes
+     * @param  array $attributes
      * @param  string $name
      *
      * @return array
@@ -177,7 +223,7 @@ class Factory implements ArrayAccess
             $attributes
         );
     }
-    
+
     /**
      * Create a builder for the given model.
      *
@@ -188,9 +234,12 @@ class Factory implements ArrayAccess
      */
     public function of($class, $name = 'default')
     {
-        return new FactoryBuilder($class, $name, $this->definitions, $this->states, $this->faker);
+        return new FactoryBuilder(
+            $class, $name, $this->definitions, $this->states, $this->faker, $this->beforeStoreCallbacks,
+            $this->afterStoreCallbacks
+        );
     }
-    
+
     /**
      * Load factories from path.
      *
@@ -201,16 +250,16 @@ class Factory implements ArrayAccess
     public function load($path)
     {
         $factory = $this;
-        
+
         if (is_dir($path)) {
             foreach (FileHelper::findFiles($path, ['only' => ['*.php']]) as $file) {
                 require $file;
             }
         }
-        
+
         return $factory;
     }
-    
+
     /**
      * @param  string $offset
      * @return bool
@@ -219,7 +268,7 @@ class Factory implements ArrayAccess
     {
         return isset($this->definitions[$offset]);
     }
-    
+
     /**
      * @param  string $offset
      * @return mixed
@@ -229,9 +278,9 @@ class Factory implements ArrayAccess
     {
         return $this->make($offset);
     }
-    
+
     /**
-     * @param  string   $offset
+     * @param  string $offset
      * @param  callable $value
      *
      * @return $this
@@ -240,7 +289,7 @@ class Factory implements ArrayAccess
     {
         return $this->define($offset, $value);
     }
-    
+
     /**
      * @param  string $offset
      *
