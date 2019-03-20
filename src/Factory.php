@@ -3,7 +3,7 @@
  * Created by solly [26.11.17 2:40]
  */
 
-namespace insolita\muffin;
+namespace webinvader\muffin;
 
 use ArrayAccess;
 use Faker\Generator as Faker;
