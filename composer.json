@@ -33,7 +33,7 @@
     "suggest":     { } ,
     "autoload":    {
         "psr-4": {
-            "insolita\\muffin\\": "src/",
+            "webinvader\\muffin\\": "src/",
             "tests\\":"tests/"
         },
         "files": [
