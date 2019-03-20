@@ -1,6 +1,6 @@
 {
-    "name":        "insolita/yii2-muffin-factory" ,
-    "description": "Port of laravel factory" ,
+    "name":        "webinvader/yii2-muffin-factory" ,
+    "description": "Is a fork of insolita/yii2-muffin-factory" ,
     "type":        "yii2-extension" ,
     "keywords":    [ "yii2", "seed", "testing", "fixtures", "database"] ,
     "license":     "MIT" ,
@@ -8,6 +8,10 @@
         {
             "name":  "insolita" ,
             "email": "webmaster100500@ya.ru"
+        },
+         {
+            "name":  "webinvader" ,
+            "email": "webinvader@gmail.com"
         }
     ] ,
     "repositories": [
