@@ -88,6 +88,14 @@ class FactoryBuilder
     protected $amount = null;
 
     /**
+     * The states to apply.
+     *
+     * @var array
+     */
+    protected $activeAttributes = [];
+
+
+    /**
      * Create an new builder instance.
      *
      * @param  string $class
@@ -312,6 +320,7 @@ class FactoryBuilder
         if (!isset($this->definitions[$this->class][$this->name])) {
             throw new \InvalidArgumentException("Unable to locate factory with name [{$this->name}] [{$this->class}].");
         }
+        $this->activeAttributes = $attributes;
         $instance = new $this->class();
         $instance->setAttributes($this->getRawAttributes($attributes), false);
         return $instance;
@@ -357,7 +366,7 @@ class FactoryBuilder
             $callback = $this->beforeStore[$this->class];
         }
         if (!is_null($callback) && is_callable($callback)) {
-            call_user_func($callback, $model, $this->faker);
+            call_user_func($callback, $model, $this->activeAttributes, $this->faker);
         }
     }
 
@@ -378,7 +387,7 @@ class FactoryBuilder
             $callback = $this->afterStore[$this->class];
         }
         if (!is_null($callback) && is_callable($callback)) {
-            call_user_func($callback, $model, $this->faker);
+            call_user_func($callback, $model, $this->activeAttributes, $this->faker);
         }
     }
 
